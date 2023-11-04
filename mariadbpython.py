@@ -40,7 +40,7 @@ def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10'):
     for row in cursor: 
         myRow = {}
         for ii, col in enumerate(row): 
-            myRow[ skjema['fieldNames'][ii] ] = col
+            myRow[ skjema['FieldNames'][ii] ] = col
         data.append( myRow )
 
     return data 
