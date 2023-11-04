@@ -62,37 +62,36 @@ def hentAltFraKontrakt( kontraktId, cursor ):
             'file' : [],
             }
 
-    resultat['project'] = hentFraTabell( 'project', cursor, modifikator=f"where project_id = {kontraktId} ")
-    resultat['comment'] = hentFraTabell( 'comment', cursor, modifikator=f"where project_id = {kontraktId} ")
-    resultat['contract_change'] = hentFraTabell( 'contract_change', cursor, modifikator=f"where contract_id = {kontraktId} ")
-    resultat['contract_visit'] = hentFraTabell( 'contract_visit', cursor, modifikator=f"where contract_id = {kontraktId} ")
-    resultat['event'] = hentFraTabell( 'event', cursor, modifikator=f"where project_id = {kontraktId} ")
-    resultat['feature2'] = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id = {kontraktId} ")
-    resultat['nvdb_submission'] = hentFraTabell( 'nvdb_submission', cursor, modifikator=f"where project_id = {kontraktId}")
-    resultat['project_locks'] = hentFraTabell( 'project_locks', cursor, modifikator=f"where project_id = {kontraktId}")
-    resultat['project_map_comment'] = hentFraTabell( 'project_map_comment', cursor, modifikator=f"where project_id = {kontraktId}")
-    resultat['project_milestone'] = hentFraTabell( 'project_milestone', cursor, modifikator=f"where project_id = {kontraktId}")
-    resultat['validation_issue2'] = hentFraTabell( 'validation_issue2', cursor, modifikator=f"where project_id = {kontraktId}")
+    resultat['project']                 = hentFraTabell( 'project',             cursor, modifikator=f"where id = '{kontraktId}' ")
+    resultat['comment']                 = hentFraTabell( 'comment',             cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['contract_change']         = hentFraTabell( 'contract_change',     cursor, modifikator=f"where contract_id = '{kontraktId}'")
+    resultat['contract_visit']          = hentFraTabell( 'contract_visit',      cursor, modifikator=f"where contract_id = '{kontraktId}'")
+    resultat['event']                   = hentFraTabell( 'event',               cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['feature2']                = hentFraTabell( 'feature2',            cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['nvdb_submission']         = hentFraTabell( 'nvdb_submission',     cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['project_locks']           = hentFraTabell( 'project_locks',       cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['project_map_comment']     = hentFraTabell( 'project_map_comment', cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['project_milestone']       = hentFraTabell( 'project_milestone',   cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['validation_issue2']       = hentFraTabell( 'validation_issue2',   cursor, modifikator=f"where project_id = '{kontraktId}'")
 
     for feat in resultat['feature2']:
-        relasjoner = hentFraTabell( 'feature_association2', cursor, modifikator=f"where parent_feature_id = {feat['id']} or child_feature_id = {feat['id']} ")
+        relasjoner = hentFraTabell( 'feature_association2', cursor, modifikator=f"where parent_feature_id = '{feat['id']}' or child_feature_id = '{feat['id']}' ")
         resultat['feature_association2'].extend( relasjoner )
 
-        egenskaper = hentFraTabell( 'feature_attribute2', cursor, modifikator=f"where feature_id = {feat['id']}")
+        egenskaper = hentFraTabell( 'feature_attribute2', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_attribute2'].extend( egenskaper )
 
-        geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id = {feat['id']}")
+        geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_geometry'].extend( geometri )
 
-        stedfesting = hentFraTabell( 'feature_locational2', cursor, modifikator=f"where feature_id = {feat['id']}")
+        stedfesting = hentFraTabell( 'feature_locational2', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_locational2'].extend( stedfesting )
 
-        lock = hentFraTabell( 'feature_locks', cursor, modifikator=f"where feature_id = {feat['id']}")
+        lock = hentFraTabell( 'feature_locks', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_locks'].extend( lock )
 
-        filer = hentFraTabell( 'file', cursor, modifikator=f"where feature_id = {feat['id']}")
+        filer = hentFraTabell( 'file', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['file'].extend( filer )
-
 
     return resultat
 
