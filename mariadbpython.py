@@ -27,7 +27,26 @@ def lagCursor( secretsfile='secrets.json', database=None ):
 
     return (conn, cursor)    
 
-def lagskjema( tabell:str, cursor ):
+def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10'):
+    """
+    Henter data fra angitt tabell. Modifikator kan f.eks være WHERE  - statement eller noe sånt. 
+    """
+
+    skjema = hentSkjema( tabellNavn, cursor )
+
+    query = f"SELECT * from {tabellNavn} {modifikator}"
+    cursor.execute( query)
+    data = []
+    for row in cursor: 
+        myRow = {}
+        for ii, col in enumerate(row): 
+            myRow[ skjema['fieldNames'][ii] ] = col
+        data.append( myRow )
+
+    return data 
+
+
+def hentSkjema( tabell:str, cursor ):
     """
     Lager skjema for databasetabell 
     """
