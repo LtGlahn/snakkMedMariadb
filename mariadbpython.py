@@ -10,7 +10,7 @@ def lagCursor( secretsfile='secrets.json', database=None ):
     NB! Det er god folkeskikk å lukke cursor og oppkobling etterpå
     """
 
-    with open secretsfile as f: 
+    with open( secretsfile ) as f: 
         secrets = json.load( f )
 
     # Kan bruke en annen database, f.eks for å se på lokal backup i annen database
@@ -27,7 +27,7 @@ def lagCursor( secretsfile='secrets.json', database=None ):
 
     return (conn, cursor)    
 
-def lagskjema( tabell:str, cursor ):_ 
+def lagskjema( tabell:str, cursor ):
     """
     Lager skjema for databasetabell 
     """
