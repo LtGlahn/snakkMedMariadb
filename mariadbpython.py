@@ -73,6 +73,7 @@ def hentAltFraKontrakt( kontraktId, cursor ):
     resultat['project_map_comment']     = hentFraTabell( 'project_map_comment', cursor, modifikator=f"where project_id = '{kontraktId}'")
     resultat['project_milestone']       = hentFraTabell( 'project_milestone',   cursor, modifikator=f"where project_id = '{kontraktId}'")
     resultat['validation_issue2']       = hentFraTabell( 'validation_issue2',   cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['file']                    = hentFraTabell( 'file',                cursor, modifikator=f"where project_id = '{kontraktId}'")
 
     for feat in resultat['feature2']:
         relasjoner = hentFraTabell( 'feature_association2', cursor, modifikator=f"where parent_feature_id = '{feat['id']}' or child_feature_id = '{feat['id']}' ")
@@ -90,8 +91,6 @@ def hentAltFraKontrakt( kontraktId, cursor ):
         lock = hentFraTabell( 'feature_locks', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_locks'].extend( lock )
 
-        filer = hentFraTabell( 'file', cursor, modifikator=f"where feature_id = '{feat['id']}'")
-        resultat['file'].extend( filer )
 
     return resultat
 
