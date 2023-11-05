@@ -131,7 +131,7 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
             dir = os.getcwd()
             excelfil = dir + '/' + excelfil
             kommando = f"scp -P 1932 {excelfil} jajens@its.npra.io:/var/www/html/datafangstdump"
-            subprocess.run( kommando  )
+            subprocess.run( kommando, shell=True  )
 
     if picklefil: 
         with open( picklefil, 'wb') as f:
@@ -141,7 +141,7 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
             dir = os.getcwd()
             picklefil = dir + '/' + picklefil
             kommando = f"scp -P 1932 {picklefil} jajens@its.npra.io:/var/www/html/datafangstdump"
-            subprocess.run( kommando  )
+            subprocess.run( kommando, shell=True )
 
     return resultat
 
