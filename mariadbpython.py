@@ -3,6 +3,7 @@ import pandas as pd
 import pickle
 import json 
 import subprocess
+import os 
 
 def lagCursor( secretsfile='secrets.json', database=None ): 
     """
@@ -127,6 +128,8 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
     if excelfil: 
         kontraktdump2excel( resultat, excelfil)
         if sendTilLangbein: 
+            dir = os.getcwd()
+            excelfil = dir + '/' + excelfil
             kommando = f"scp -P 1932 {excelfil} jajens@its.npra.io:/var/www/html/datafangstdump"
             subprocess.run( kommando  )
 
@@ -135,6 +138,8 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
             pickle.dump( resultat, f )
         
         if sendTilLangbein: 
+            dir = os.getcwd()
+            picklefil = dir + '/' + picklefil
             kommando = f"scp -P 1932 {picklefil} jajens@its.npra.io:/var/www/html/datafangstdump"
             subprocess.run( kommando  )
 
