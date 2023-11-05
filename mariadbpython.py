@@ -1,7 +1,8 @@
 import mysql.connector
 import pandas as pd 
+import pickle
 import json 
-
+import subprocess
 
 def lagCursor( secretsfile='secrets.json', database=None ): 
     """
@@ -48,10 +49,39 @@ def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10', databegrensni
 
     return data 
 
-def hentAltFraKontrakt( kontraktId, cursor ): 
+
+def kontraktdump2excel( kontraktdump:dict, filnavn:str  ):
+    """
+    Lagrer output fra hentAltFraKontrakt til excel-fil 
+
+    Vi ignorerer tomme tabeller 
+    """
+    arknavn = []
+    dataFrames = []
+
+    assert isinstance( kontraktdump, dict), f"Input data må være dictionary med lister"
+
+    for tabellNavn in kontraktdump.keys(): 
+        if isinstance( kontraktdump[tabellNavn], list): 
+            if len( kontraktdump[tabellNavn]) > 0: 
+                myDf = pd.DataFrame( kontraktdump[tabellNavn] )
+                arknavn.append( tabellNavn)
+                dataFrames.append( myDf )
+            else: 
+                print( f"Ignorerer tom tabell {tabellNavn}")
+        else: 
+            print( f"Datasett {tabellNavn} er ikke en liste")
+
+    skrivexcel( filnavn, dataFrames, sheet_nameListe=arknavn )
+
+def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, picklefil=None, sendTilLangbein=False ): 
     """
     Henter alle data tilknyttet en kontrakt 
+
+    Returnerer dictionary med en key per tabell, som hver har (potensielt tom) liste med dictionaries
     """
+
+    conn, cursor = lagCursor( 'secrets.json', database=database )
 
     resultat = {
             'feature_association2' : [],  
@@ -62,18 +92,18 @@ def hentAltFraKontrakt( kontraktId, cursor ):
             'file' : [],
             }
 
-    resultat['project']                 = hentFraTabell( 'project',             cursor, modifikator=f"where id = '{kontraktId}' ")
-    resultat['comment']                 = hentFraTabell( 'comment',             cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['project']                 = hentFraTabell( 'project',             cursor, modifikator=f"where id          = '{kontraktId}'")
+    resultat['comment']                 = hentFraTabell( 'comment',             cursor, modifikator=f"where project_id  = '{kontraktId}'")
     resultat['contract_change']         = hentFraTabell( 'contract_change',     cursor, modifikator=f"where contract_id = '{kontraktId}'")
     resultat['contract_visit']          = hentFraTabell( 'contract_visit',      cursor, modifikator=f"where contract_id = '{kontraktId}'")
-    resultat['event']                   = hentFraTabell( 'event',               cursor, modifikator=f"where project_id = '{kontraktId}'")
-    resultat['feature2']                = hentFraTabell( 'feature2',            cursor, modifikator=f"where project_id = '{kontraktId}'")
-    resultat['nvdb_submission']         = hentFraTabell( 'nvdb_submission',     cursor, modifikator=f"where project_id = '{kontraktId}'")
-    resultat['project_locks']           = hentFraTabell( 'project_locks',       cursor, modifikator=f"where project_id = '{kontraktId}'")
-    resultat['project_map_comment']     = hentFraTabell( 'project_map_comment', cursor, modifikator=f"where project_id = '{kontraktId}'")
-    resultat['project_milestone']       = hentFraTabell( 'project_milestone',   cursor, modifikator=f"where project_id = '{kontraktId}'")
-    resultat['validation_issue2']       = hentFraTabell( 'validation_issue2',   cursor, modifikator=f"where project_id = '{kontraktId}'")
-    resultat['file']                    = hentFraTabell( 'file',                cursor, modifikator=f"where project_id = '{kontraktId}'")
+    resultat['event']                   = hentFraTabell( 'event',               cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['feature2']                = hentFraTabell( 'feature2',            cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['nvdb_submission']         = hentFraTabell( 'nvdb_submission',     cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['project_locks']           = hentFraTabell( 'project_locks',       cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['project_map_comment']     = hentFraTabell( 'project_map_comment', cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['project_milestone']       = hentFraTabell( 'project_milestone',   cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['validation_issue2']       = hentFraTabell( 'validation_issue2',   cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['file']                    = hentFraTabell( 'file',                cursor, modifikator=f"where project_id  = '{kontraktId}'")
 
     for feat in resultat['feature2']:
         relasjoner = hentFraTabell( 'feature_association2', cursor, modifikator=f"where parent_feature_id = '{feat['id']}' or child_feature_id = '{feat['id']}' ")
@@ -91,6 +121,22 @@ def hentAltFraKontrakt( kontraktId, cursor ):
         lock = hentFraTabell( 'feature_locks', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_locks'].extend( lock )
 
+    cursor.close()
+    conn.close()
+
+    if excelfil: 
+        kontraktdump2excel( resultat, excelfil)
+        if sendTilLangbein: 
+            kommando = f"scp -P 1932 {excelfil} jajens@its.npra.io:/var/www/html/datafangstdump"
+            subprocess.run( kommando  )
+
+    if picklefil: 
+        with open( picklefil, 'wb') as f:
+            pickle.dump( resultat, f )
+        
+        if sendTilLangbein: 
+            kommando = f"scp -P 1932 {picklefil} jajens@its.npra.io:/var/www/html/datafangstdump"
+            subprocess.run( kommando  )
 
     return resultat
 
@@ -127,3 +173,57 @@ def hentSkjema( tabell:str, cursor ):
     return skjema
 
 
+def skrivexcel( filnavn, dataFrameListe, sheet_nameListe=[], indexListe=[] ):
+    """
+    Skriver liste med dataFrame til excel, med kolonnebredde=lengste element i header eller datainnhold
+
+    ARGUMENTS
+        filnavn : Navn på excel-fil 
+
+        dataFrameListe : Liste med dataframe, eller en enkelt dataFrame / geodataframe 
+
+    KEYWORDS
+        sheet_nameListe : [] Liste med navn på fanene i exel-arket. Hvis tom liste brukes Fane1, Fane2...
+
+        indexListe : [] Angir om index skal med som første kolonne(r), liste med True eller False. Default: Uten index. 
+
+        slettgeometri : True . Sletter geometrikolonner 
+    """
+
+    # Håndterer en enkelt dataframe => putter i liste med ett element
+
+    if not isinstance( dataFrameListe, list ): 
+        dataFrameListe = [ dataFrameListe ]
+
+    writer = pd.ExcelWriter( filnavn, engine='xlsxwriter')
+
+
+    for (idx, endf ) in enumerate( dataFrameListe): 
+
+        # Sikrer at vi ikke har sideeffekter på orginal dataframe
+        mydf = endf.copy()
+
+        # Navn på blad (ark, sheet_name) i excel-fila
+        if sheet_nameListe and isinstance( sheet_nameListe, list) and idx+1 <= len( sheet_nameListe): 
+            arknavn = sheet_nameListe[idx]
+        else: 
+            arknavn = 'Ark' + str( idx+1 )
+
+        # Skal vi ha med indeks? 
+        if indexListe and isinstance( indexListe, list) and len( indexListe) <= idx+1: 
+            brukindex = indexListe[idx]
+        else: 
+            brukindex = False 
+
+        mydf.to_excel(writer, sheet_name=arknavn, index=brukindex)
+
+
+        # Auto-adjust columns' width. 
+        # Fra https://towardsdatascience.com/how-to-auto-adjust-the-width-of-excel-columns-with-pandas-excelwriter-60cee36e175e
+        for column in mydf:
+            column_width = max(mydf[column].astype(str).map(len).max(), len(column)) + 3
+            col_idx = mydf.columns.get_loc(column)
+            writer.sheets[arknavn].set_column(col_idx, col_idx, column_width)
+
+    writer.close( )
+    print( f"skrev {len( dataFrameListe )} faner til {filnavn} ")
