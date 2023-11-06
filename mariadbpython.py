@@ -70,10 +70,18 @@ def kontraktdump2excel( kontraktdump:dict, filnavn:str  ):
                 dataFrames.append( myDf )
             else: 
                 print( f"Ignorerer tom tabell {tabellNavn}")
+        elif tabellNavn == 'eksportdato': 
+            pass 
         else: 
             print( f"Datasett {tabellNavn} er ikke en liste")
 
     skrivexcel( filnavn, dataFrames, sheet_nameListe=arknavn )
+
+def hentAltOmObjekt( ):
+    """
+    IKKE IMPLEMENTERT
+    """
+    pass 
 
 def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, picklefil=None, sendTilLangbein=False ): 
     """
@@ -85,12 +93,13 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
     conn, cursor = lagCursor( 'secrets.json', database=database )
 
     resultat = {
-            'feature_association2' : [],  
-            'feature_attribute2' : [], 
-            'feature_geometry' : [], 
-            'feature_locational2' : [],
-            'feature_locks' : [],
-            'file' : [],
+            'eksportdato'           : datetime.now(),
+            'feature_association2'  : [],  
+            'feature_attribute2'    : [], 
+            'feature_geometry'      : [], 
+            'feature_locational2'   : [],
+            'feature_locks'         : [],
+            'file'                  : [],
             }
 
     resultat['project']                 = hentFraTabell( 'project',             cursor, modifikator=f"where id          = '{kontraktId}'")
@@ -128,14 +137,14 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
     if excelfil: 
         kontraktdump2excel( resultat, excelfil)
         if sendTilLangbein: 
-            print( f"scp -P 1932 {excelfil} jajens@its.npra.io:/var/www/html/datafangstdump")
+            print( f"!scp -P 1932 {excelfil} jajens@its.npra.io:/var/www/html/datafangstdump")
 
     if picklefil: 
         with open( picklefil, 'wb') as f:
             pickle.dump( resultat, f )
         
         if sendTilLangbein: 
-            print( f"scp -P 1932 {picklefil} jajens@its.npra.io:/var/www/html/datafangstdump")
+            print( f"!scp -P 1932 {picklefil} jajens@its.npra.io:/var/www/html/datafangstdump")
 
     return resultat
 
