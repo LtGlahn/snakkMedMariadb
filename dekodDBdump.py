@@ -38,6 +38,7 @@ def statusEndringssett( mariadbdump:dict, returner=False, detaljert=False, objek
     
     if objektType: 
         if isinstance( objektType, list) and len( objektType ) > 0: 
+            assert all( isinstance( x, (int, str) ) for x in objektType ), f"objektType må være heltall, str eller liste med heltall"
             objektType.sort()
             objektType = ','.join( [ str(x) for x in objektType ])
         elif isinstance( objektType, int): 
@@ -45,7 +46,7 @@ def statusEndringssett( mariadbdump:dict, returner=False, detaljert=False, objek
         elif isinstance( objektType, str ): 
             pass 
         else: 
-            print( f"Kjente ikke igjen parameter objektType av type( {type(objektType)}) - må være heltall, str eller liste med heltall ")
+            print( f"Kjente ikke igjen parameter objektType av type( {type(objektType)}) - må være heltall eller liste med heltall IGNORERER PARAMETER")
             objektType = None 
 
     nvdb_submission = pd.DataFrame( mariadbdump['nvdb_submission'])
@@ -90,13 +91,102 @@ def statusEndringssett( mariadbdump:dict, returner=False, detaljert=False, objek
 
     if returner: 
         return nvdb_submission 
+    
+def eksport2geojson( mariadbdump:dict, filename=None, objektType=None, alias=None, name=None  ): 
+    """
+    Eksporterer alle eller noen features til geojson featurecollection
 
-def feature2geojson( feature_id:str, mariadbdata:dict ): 
+    ARGUMENTS: 
+        mariadbdump - output fra mariadbpython.hentAltFraKontrakt
+
+    KEYWORDS: 
+        filename : None ELLER str, vil lagre til angitt filnavn istedet for å returnerer geojson dictionary
+
+        objektType : None ELLER Int ELLER list, vil kun returnere angitt objekttyp(er)
+
+        alias : None ELLER str, vil filtrere på de objektene der alias-feltet inneholder søkestrengen
+        
+        name  : None ELLER str, vil filtrere på de objektene der name-feltet inneholder søkestrengen
+
+    RETURNS 
+        dictionary ELLER NONE, avhenger av om filename er angitt eller ei. dictionary er en geojson featureCollection
+    """
+
+    assert isinstance( mariadbdump, dict), f"Input må være dictionary med datadump fra mariadb"
+    assert 'eksportdato' in mariadbdump, f"Kjenner ikke igjen dictionary som datadump fra mariadb"
+    if 'feature2' not in mariadbdump: 
+        print( f"Ingen feature2 - tabell i denne datadumpen!")
+        return     
+    
+    FeatCollection = {
+                        "type" : "FeatureCollection",
+                        "name" : f"DFdatadump {str(mariadbdump['eksportdato'])}",
+                        "crs" : {
+                            "type" : "name",
+                            "properties" : {
+                                "name" : "EPSG:5973"
+                                    }
+                        },
+                        "features" : [ ]
+                    }
+
+    if objektType: 
+        # objektType blir en liste med ett eller flere medlemmer
+        assert isinstance( objektType, (int, list)), f"objektType må være heltall eller liste med heltall"
+        if isinstance( objektType, list): 
+            assert all( isinstance( x, int) for x in objektType), f"ObjektType som liste må kun inneholde heltall"
+        elif isinstance( objektType, int): 
+            objektType = [ objektType ]
+        else: 
+            print( f"Kjente ikke igjen objektType - parameter??? Type {type(objektType)}, avbryter")
+            return 
+        
+        # Føyer filter til navnet på featureCollection
+        FeatCollection["name"] += f" objektType={','.join( [ str(x) for x in objektType] )}"
+
+    if alias: 
+        assert isinstance( alias, str), f"Parameter alias må være tekststreng"
+        FeatCollection["name"] += f" alias={alias}"
+
+    if name: 
+        assert isinstance( name, str), f"Parameter name må være tekststreng"
+        FeatCollection["name"] += f" name={name}"
+
+
+    for feat in mariadbdump['feature2']: 
+
+        # Må sjekke de ulike filtrene
+        godkjent = True 
+        if objektType and feat['type_id'] not in objektType: 
+            godkjent = False 
+
+        if name and name.lower() not in feat['name'].lower(): 
+            godkjent = False 
+
+        if alias and alias.lower() not in feat['alias'].lower(): 
+            godkjent = False 
+
+        if godkjent: 
+            gj = feature2geojson( feat['id'], mariadbdump )
+            FeatCollection['features'].append( gj )
+
+    if len( FeatCollection['features']) == 0: 
+        print( f"ADVARSEL - fant ingen features med angitte filtre. {FeatCollection['name']}")
+
+    if filename: 
+        assert isinstance( filename, str ), f"Argument filename må være tekst"
+        with open( filename, 'w') as f: 
+            json.dump( FeatCollection, f, ensure_ascii=False, indent=4 )
+            print( f"Skrev geojson med {len( FeatCollection['features'])} medlemmer til fil {filename}")
+    else: 
+        return FeatCollection 
+
+def feature2geojson( feature_id:str, mariadbdump:dict ): 
     """
     Komponerer geojson-feature for angitt feature_id i den datastrukturen vi har hentet fra mariadb 
     """
 
-    kandidat = [ x for x in mariadbdata['feature2'] if feature_id ==  x['id'] ]
+    kandidat = [ x for x in mariadbdump['feature2'] if feature_id ==  x['id'] ]
     assert len( kandidat ) < 2, f"Korrupte data - flere enn ett objekt i tabell feature2 har id='{feature_id}'"
     if len( kandidat ) < 1: 
         print( f"Fant ingen objekt med id='{feature_id}'")
@@ -105,7 +195,7 @@ def feature2geojson( feature_id:str, mariadbdata:dict ):
     feat = kandidat[0]
     
     # Henter geometri 
-    geomkandidat = [ x for x in mariadbdata['feature_geometry'] if x['feature_id'] == feature_id ]
+    geomkandidat = [ x for x in mariadbdump['feature_geometry'] if x['feature_id'] == feature_id ]
     assert len( geomkandidat ) == 1, f"Korrupte data - det finnes alltid EN og kun EN geometri for feature_id = '{feature_id}', jeg fant {len( geomkandidat)}"
     myGeojson = lagGeojsonGeometri( json.loads( geomkandidat[0]['geometry'] ) )
 
@@ -113,15 +203,15 @@ def feature2geojson( feature_id:str, mariadbdata:dict ):
     myGeojson['properties']['data_catalog_version'] = feat['data_catalog_version']
     myGeojson['properties']['type_id']              = feat['type_id']
 
-    egenskaper = [ x for x in mariadbdata['feature_attribute2'] if x['feature_id'] == feature_id ]
+    egenskaper = [ x for x in mariadbdump['feature_attribute2'] if x['feature_id'] == feature_id ]
     if len( egenskaper ) > 0: 
         myGeojson['properties']['attributes'] = { }
         for eg in egenskaper: 
             myGeojson['properties']['attributes'][eg['type_id']] = eg['value']
 
     # Kommentarer
-    kommentarer = [ x['comment'] for x in mariadbdata['comment'] if x and x['object_id'] == feature_id ]
-    kommentar_tekst = f"DF-databaseeksport {mariadbdata['eksportdato']}"
+    kommentarer = [ x['comment'] for x in mariadbdump['comment'] if x and x['object_id'] == feature_id ]
+    kommentar_tekst = f"DF-databaseeksport {mariadbdump['eksportdato']}"
     if len( kommentarer ) > 0:
         kommentar_tekst += ' , kommentarer: ' + '; '.join( kommentarer )
         
