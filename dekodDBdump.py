@@ -92,7 +92,64 @@ def statusEndringssett( mariadbdump:dict, returner=False, detaljert=False, objek
     if returner: 
         return nvdb_submission 
     
-def eksport2geojson( mariadbdump:dict, filename=None, objektType=None, alias=None, name=None  ): 
+
+def QAskriveoperasjoner( operasjon ):
+    """
+    Kvalitetssikrer at operasjon er en eller flere av ['CREATE', 'CORRECT', 'UPDATE', 'CLOSE']
+    evt kan man også bruke de norske begrepene til NVDB APISKRIV 
+    'registrer', 'oppdater', 'delvisOppdater', 'korriger', 'delvisKorriger', 'lukk'
+
+    Merk at 'fjern' ikke anerkjennes som en lovlig operasjon for Datafangst endringssett (i denne konteksten), 
+    og vil bli ignorert
+
+    ARGUMENTS
+        operasjon : list ELLER str ELLER None 
+
+    RETURNS
+        DFoperasjon : list, liste med null, 1 eller flere av verdiene ['CREATE', 'CORRECT', 'UPDATE', 'CLOSE']
+    """
+
+    DFoperasjon = []
+    if operasjon is None: 
+        return DFoperasjon 
+
+    # Skriveoperasjoner
+    muligeOperasjoner = ['CREATE', 'CORRECT', 'UPDATE', 'CLOSE']
+    norskeOperasjoner = {'REGISTRER'        :  'CREATE', 
+                         'OPPRETT'          : 'CREATE',
+                         'OPPDATER'         : 'UPDATE', 
+                         'DELVISOPPDATER'   : 'UPDATE', 
+                         'KORRIGER'         : 'CORRECT', 
+                         'DELVISKORRIGER'   : 'CORRECT', 
+                         'SLETT'            : 'CLOSE', 
+                         'LUKK'             : 'CLOSE'    }
+  
+    # Gjør tekst om til python-liste med tekst.
+    # Merk at syntaksen operasjon='registrer,UPDATE' er helt grei syntaks 
+    if isinstance( operasjon, str):
+        if ',' in operasjon: 
+            operasjonListe = operasjon.split(',') 
+        else:  
+            operasjonListe = [ operasjon ]
+
+    assert isinstance( operasjonListe, list), f"Parameter operasjon må være tekststreng eller liste med operasjoner, ikke {type(operasjon)} "
+    assert all( isinstance( x, str) for x in operasjonListe), f"Operasjon må være tekst, ikke {[type( x) for x in operasjonListe]}"
+    operasjonListe = [ x.upper() for x in operasjonListe ]
+    for enOperasjon in operasjonListe: 
+        if enOperasjon in norskeOperasjoner: 
+            print( f"Oversetter norsk operasjon til internt DF1.0 - vokabular: {enOperasjon} => {norskeOperasjoner[enOperasjon]}")
+            DFoperasjon.append(  norskeOperasjoner[enOperasjon] ) 
+        elif enOperasjon in muligeOperasjoner: 
+            DFoperasjon.append( enOperasjon )
+        else: 
+            print( f"Gjenkjenner ikke og vil igonorere denne operasjonstypen: {enOperasjon}")
+    if len( DFoperasjon ) == 0: 
+        print( f"Ingen lovlige verdier i parameter operasjon={operasjon}, ignorerer")
+
+    return DFoperasjon   
+
+    
+def eksport2geojson( mariadbdump:dict, filename=None, objektType=None, alias=None, name=None, operasjon=None  ): 
     """
     Eksporterer alle eller noen features til geojson featurecollection
 
@@ -107,6 +164,10 @@ def eksport2geojson( mariadbdump:dict, filename=None, objektType=None, alias=Non
         alias : None ELLER str, vil filtrere på de objektene der alias-feltet inneholder søkestrengen
         
         name  : None ELLER str, vil filtrere på de objektene der name-feltet inneholder søkestrengen
+
+        operasjon : None ELLER str = en av ['CREATE', 'CORRECT', 'UPDATE', 'CLOSE'], eller en liste med en eller fler av dem
+                        eventuelt kan man også bruke de norske begrepene som er mulige i NVDB SKRIVEAPI 
+                        se dokumentasjon på dekodDBdump.def QAskriveoperasjoner( operasjon ):
 
     RETURNS 
         dictionary ELLER NONE, avhenger av om filename er angitt eller ei. dictionary er en geojson featureCollection
@@ -152,6 +213,9 @@ def eksport2geojson( mariadbdump:dict, filename=None, objektType=None, alias=Non
         assert isinstance( name, str), f"Parameter name må være tekststreng"
         FeatCollection["name"] += f" name={name}"
 
+    
+    DFoperasjon = QAskriveoperasjoner( operasjon )
+
 
     for feat in mariadbdump['feature2']: 
 
@@ -165,6 +229,10 @@ def eksport2geojson( mariadbdump:dict, filename=None, objektType=None, alias=Non
 
         if alias and alias.lower() not in feat['alias'].lower(): 
             godkjent = False 
+
+        if len( DFoperasjon ) > 0: 
+            if feat['operation'] not in DFoperasjon: 
+                godkjent = False 
 
         if godkjent: 
             gj = feature2geojson( feat['id'], mariadbdump )
