@@ -115,6 +115,8 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
     resultat['project_milestone']       = hentFraTabell( 'project_milestone',   cursor, modifikator=f"where project_id  = '{kontraktId}'")
     resultat['validation_issue2']       = hentFraTabell( 'validation_issue2',   cursor, modifikator=f"where project_id  = '{kontraktId}'")
     resultat['file']                    = hentFraTabell( 'file',                cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['user_role']               = hentFraTabell( 'user_role',           cursor, modifikator=f"where contract_id = '{kontraktId}'")
+
 
     for feat in resultat['feature2']:
         relasjoner = hentFraTabell( 'feature_association2', cursor, modifikator=f"where parent_feature_id = '{feat['id']}' or child_feature_id = '{feat['id']}' ")
