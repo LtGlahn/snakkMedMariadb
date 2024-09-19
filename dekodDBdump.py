@@ -7,6 +7,8 @@ import json
 import pandas as pd
 from datetime import datetime
 
+
+
 def statusEndringssett( mariadbdump:dict, returner=False, detaljert=False, objektType=None   ): 
     """
     Printer status for endringssett på denne mariadumpen 
@@ -401,3 +403,35 @@ def lagGeojsonGeometri( dfgeom:dict ):
             GJfeature['properties']["geometryAttributes"][nyGeomATTR] = dfgeom['properties']['map'][geomATTR]
 
     return GJfeature
+
+
+def endringsettVegobjekter( endringssett:dict ):
+    """
+    Leser vegobjektene i endringssett
+
+    Returnerer dictionary med dataframes, en oppføring per operasjon
+
+    ARGUMENTS
+        endringssett : dict, endringssett fra NVDB api SKRIV
+
+    KEYWORDS
+        N/A
+    
+    RETURNS
+        dictionary med én tabell med vegobjekter per skriveoperasjon i endringssettet. 
+        Hver av tabellene er en pandas DataFrame. 
+    """
+
+    returdata = { 'endringssett' : endringssett }
+
+    for operasjon in ['registrer', 'delvisOppdater', 'oppdater', 'korriger', 'delvisKorriger', 'lukk', 'fjern']: 
+
+        if operasjon in endringssett: 
+            returdata[operasjon] = pd.DataFrame( endringssett[operasjon]['vegobjekter'] )
+
+    return returdata
+
+
+if __name__ == '__main__': 
+    pass 
+
