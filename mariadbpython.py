@@ -6,29 +6,34 @@ import subprocess
 import os 
 from datetime import datetime
 
-def lagCursor( secretsfile='secrets.json', database=None ): 
+def lagCursor(secretsfile='secrets.json', database=None):
     """
     Leser oppkoblingsdetaljer, returnerer connnection- og cursor objekt
 
     NB! Det er god folkeskikk å lukke cursor og oppkobling etterpå
     """
+    try:
+        with open(secretsfile) as f:
+            secrets = json.load(f)
 
-    with open( secretsfile ) as f: 
-        secrets = json.load( f )
+        # Kan bruke en annen database, f.eks for å se på lokal backup i annen database
+        if database:
+            secrets['database'] = database
 
-    # Kan bruke en annen database, f.eks for å se på lokal backup i annen database
-    if database: 
-        secrets['database'] = database
-      
-    conn = mysql.connector.connect( user=secrets['user'], 
-                                   password=secrets['password'], 
-                                   host=secrets['host'], 
-                                   database=secrets['database'] )
+        conn = mysql.connector.connect(
+            user=secrets['user'],
+            password=secrets['password'],
+            host=secrets['host'],
+            database=secrets['database'],
+            port=secrets['port'],
+            ssl_ca=secrets.get('ssl_ca')
+        )
+        cursor = conn.cursor(dictionary=False)
+        return conn, cursor
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        raise
 
-
-    cursor = conn.cursor()
-
-    return (conn, cursor)    
 
 def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10', databegrensning=True ):
     """
