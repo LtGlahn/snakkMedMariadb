@@ -25,7 +25,7 @@ def lagCursor(secretsfile='secrets.json', database=None):
             password=secrets['password'],
             host=secrets['host'],
             database=secrets['database'],
-            port=3306,
+            port=secrets['port'],
             ssl_ca=secrets.get('ssl_ca')
         )
         cursor = conn.cursor(dictionary=False)
