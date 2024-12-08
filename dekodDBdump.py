@@ -6,6 +6,7 @@ import pickle
 import json 
 import pandas as pd
 from datetime import datetime
+from copy import deepcopy
 
 
 
@@ -431,6 +432,76 @@ def endringsettVegobjekter( endringssett:dict ):
 
     return returdata
 
+def fjernHoydeMetadataFra2Dgeom( geomobj:dict ): 
+    """
+    Retter opp i metadata høyde for 2D geometrier
+
+    Eksempel på 2D geometri (height='nan') og der nøyaktighet høyde (ACCURACY_HEIGHT) har verdien 1, som en fornuftig verdi for 3D, 
+    men bare tøys og ikke tillatt for 2D geometri
+
+    {'type': 'POINT',
+  'representationPoint': None,
+  'shape': {'@class': 'no.svv.nvdb.datafangst.domainmodel.geometry.shapes.Point',
+   'position': {'northing': 6456810.56, 'easting': 56268.68, 'height': 'NaN'}},  <<<<---- 'NaN' for høydekoordinat == 2D geometri
+  'srid': 5973,
+  'heightRef': 'NN2000',
+  'properties': {'map': {'ACCURACY': '1',
+    'ACCURACY_HEIGHT': '1',                         <<<<<<<---- FEIL, bare tøys for 2D koordinat! 
+    'MEASUREMENT_METHOD_HEIGHT': '-1',
+    'VISIBILITY': '0',
+    'MEASUREMENT_METHOD': '0'}},
+  'length': 0.0,
+  'operation': 'READ'}
+
+    ARGUMENTS
+        geomobj:dict, et objekt fra Datafangst tabellen feature_geometry 
+
+    KEYWORDS 
+        N/A
+
+    RETURNS
+        NONE eller dict. Returnerer gyldig 2D geometri der vi har fjernet metadata for høyde
+    """
+
+    newgeomobj = deepcopy( geomobj ) # Unngå snåle bieffekter av at vi endrer på ting utafor scope til funksjonen
+    geom = json.loads( geomobj['geometry'])
+    fiks2Dgeom = False 
+
+    # Hvis det er 2D så har vi teksten 'nan' på height-koordinaten. 3D så er det et flyttall
+    if geom['type'] == 'POINT' and isinstance( geom['shape']['position']['height'], float): 
+        return None 
+    elif geom['type'] != 'POINT' and isinstance( geom['shape']['positions'][0]['height'], float):
+        return None 
+    
+    # Ergo 2D geometri, vi sjekker metadata
+    if 'ACCURACY_HEIGHT' in geom['properties']['map']: 
+        fiks2Dgeom = True 
+        junk = geom['properties']['map'].pop( 'ACCURACY_HEIGHT')
+
+    if 'MEASUREMENT_METHOD_HEIGHT' in geom['properties']['map']: 
+        fiks2Dgeom = True 
+        junk = geom['properties']['map'].pop( 'MEASUREMENT_METHOD_HEIGHT')
+
+    if 'heightReference' in geom and geom['heightReference'] != None: 
+        fiks2Dgeom = True 
+        junk = geom.pop( 'heightReference' )
+
+    if fiks2Dgeom: 
+        newgeomobj['geometry'] = json.dumps( geom )
+        return newgeomobj 
+
+def fiks2Dgeom2sql( feature_geometry:list ): 
+    """
+    Returnerer liste med SQL setninger for de objektene som har ugyldige 3D metadata for 2D geometrier 
+    """
+
+    output = []
+    for geomobj in feature_geometry: 
+        fiksa = fjernHoydeMetadataFra2Dgeom( geomobj )
+        if isinstance( fiksa, dict): 
+            output.append( f"UPDATE feature_geometry set geometry = {fiksa['geometry']} WHERE id = {fiksa['id']} ;" )
+
+    return output 
 
 if __name__ == '__main__': 
     pass 
