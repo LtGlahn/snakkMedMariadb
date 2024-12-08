@@ -1,3 +1,10 @@
+"""
+Wrapper for å hente ut data fra datafangst databasen 
+
+NB! Krever versjon 8 av mysql-connector. Versjon 9 tillater ikke lenger innlogging med brukernavn og passord. 
+"""
+
+
 import mysql.connector
 import pandas as pd 
 import pickle
@@ -6,11 +13,25 @@ import subprocess
 import os 
 from datetime import datetime
 
-def lagCursor(secretsfile='secrets.json', database=None):
+def lagCursor(secretsfile='secrets.json', database=None, AWS=True):
     """
     Leser oppkoblingsdetaljer, returnerer connnection- og cursor objekt
 
     NB! Det er god folkeskikk å lukke cursor og oppkobling etterpå
+
+    ARGUMENTS
+        N/A
+
+    KEYWORDS
+        secretsfile='secrets.json' JSON file with credentials packed in a dictionary
+
+        database=None eller tekst=navnet på en annen database enn det som står i secretsfile
+
+        AWS=True Sett lik False om du kjører mot gammelt oppsett med database lokalt. Oppklobling mot AWS 
+                krever gyldig sertifikatfil angitt i secretfsfile 
+
+    RETURNS 
+        (conn, cursor) =  mysql.connector "connection" og "cursor" objekt 
     """
     try:
         with open(secretsfile) as f:
@@ -20,14 +41,23 @@ def lagCursor(secretsfile='secrets.json', database=None):
         if database:
             secrets['database'] = database
 
-        conn = mysql.connector.connect(
-            user=secrets['user'],
-            password=secrets['password'],
-            host=secrets['host'],
-            database=secrets['database'],
-            port=secrets['port'],
-            ssl_ca=secrets.get('ssl_ca')
-        )
+        if AWS: 
+            conn = mysql.connector.connect(
+                user=secrets['user'],
+                password=secrets['password'],
+                host=secrets['host'],
+                database=secrets['database'],
+                port=secrets['port'],
+                ssl_ca=secrets.get('ssl_ca')
+            )
+        else: 
+            conn = mysql.connector.connect(
+                user=secrets['user'],
+                password=secrets['password'],
+                host=secrets['host'],
+                database=secrets['database'],
+                port=secrets['port']
+            )
         cursor = conn.cursor(dictionary=False)
         return conn, cursor
     except mysql.connector.Error as err:
