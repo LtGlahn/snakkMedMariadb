@@ -468,12 +468,19 @@ def fjernHoydeMetadataFra2Dgeom( geomobj:dict ):
     fiks2Dgeom = False 
 
     # Hvis det er 2D så har vi teksten 'nan' på height-koordinaten. 3D så er det et flyttall
-    if geom['type'] == 'POINT' and isinstance( geom['shape']['position']['height'], float): 
+    if geom['type'] == 'POINT': 
+        if isinstance( geom['shape']['position']['height'], float): 
+            return None
+    elif geom['type'] == 'LINE': 
+        if isinstance( geom['shape']['positions'][0]['height'], float):
+            return None 
+    else: 
+        print( f"IKKE IMPLEMENTERT geometritype= {geom['type']}, hopper over men her er datadump\n")
+        print( json.dumps( geom, indent=4 ))
         return None 
-    elif geom['type'] != 'POINT' and isinstance( geom['shape']['positions'][0]['height'], float):
-        return None 
+        # raise NotImplemented( f"Har ikke implementert støtte for geometritype {geom['type']}")
     
-    # Ergo 2D geometri, vi sjekker metadata
+    # HVis vi når dette punktet så har vi 2D geometri, vi sjekker metadata
     if 'ACCURACY_HEIGHT' in geom['properties']['map']: 
         fiks2Dgeom = True 
         junk = geom['properties']['map'].pop( 'ACCURACY_HEIGHT')
@@ -496,10 +503,17 @@ def fiks2Dgeom2sql( feature_geometry:list ):
     """
 
     output = []
-    for geomobj in feature_geometry: 
+    for ii, geomobj in enumerate( feature_geometry): 
         fiksa = fjernHoydeMetadataFra2Dgeom( geomobj )
         if isinstance( fiksa, dict): 
-            output.append( f"UPDATE feature_geometry set geometry = {fiksa['geometry']} WHERE id = {fiksa['id']} ;" )
+            print( f"Feature geometry {ii} ID {fiksa['feature_id'] }må fikses")
+
+            # Output fra json.dumps gir masse escape-tegn for doble quotes, eks { \\"type\\" : \\"POINT\\" 
+            # Dette ser ikke ut til å samsvare med output fra databasen
+            # output.append( f"UPDATE feature_geometry set geometry = {json.dumps( fiksa['geometry'] )} WHERE id = {fiksa['feature_id']} ;" )
+
+            # Er denne serialieringen OK? Testes
+            output.append( f"UPDATE feature_geometry set geometry = '{ fiksa['geometry'] }' WHERE id = {fiksa['feature_id']} ;" )
 
     return output 
 
