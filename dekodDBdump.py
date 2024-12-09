@@ -506,14 +506,14 @@ def fiks2Dgeom2sql( feature_geometry:list ):
     for ii, geomobj in enumerate( feature_geometry): 
         fiksa = fjernHoydeMetadataFra2Dgeom( geomobj )
         if isinstance( fiksa, dict): 
-            print( f"Feature geometry {ii} ID {fiksa['feature_id'] }må fikses")
+            print( f"Feature geometry {ii} ID {fiksa['feature_id'] } må fikses") 
 
             # Output fra json.dumps gir masse escape-tegn for doble quotes, eks { \\"type\\" : \\"POINT\\" 
             # Dette ser ikke ut til å samsvare med output fra databasen
             # output.append( f"UPDATE feature_geometry set geometry = {json.dumps( fiksa['geometry'] )} WHERE id = {fiksa['feature_id']} ;" )
 
             # Er denne serialieringen OK? Testes
-            output.append( f"UPDATE feature_geometry set geometry = '{ fiksa['geometry'] }' WHERE feature_id = {fiksa['feature_id']} ;" )
+            output.append( f"UPDATE feature_geometry set geometry = '{ fiksa['geometry'] }' WHERE feature_id = '{fiksa['feature_id']}' ;" )
 
     return output 
 
