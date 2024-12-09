@@ -489,6 +489,10 @@ def fjernHoydeMetadataFra2Dgeom( geomobj:dict ):
         fiks2Dgeom = True 
         junk = geom['properties']['map'].pop( 'MEASUREMENT_METHOD_HEIGHT')
 
+    if 'HEIGHTREF' in geom['properties']['map']: 
+        fiks2Dgeom = True 
+        junk = geom['properties']['map'].pop( 'HEIGHTREF' )
+
     if 'heightReference' in geom and geom['heightReference'] != None: 
         fiks2Dgeom = True 
         junk = geom.pop( 'heightReference' )
