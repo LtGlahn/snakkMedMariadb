@@ -513,7 +513,7 @@ def fiks2Dgeom2sql( feature_geometry:list ):
             # output.append( f"UPDATE feature_geometry set geometry = {json.dumps( fiksa['geometry'] )} WHERE id = {fiksa['feature_id']} ;" )
 
             # Er denne serialieringen OK? Testes
-            output.append( f"UPDATE feature_geometry set geometry = '{ fiksa['geometry'] }' WHERE id = {fiksa['feature_id']} ;" )
+            output.append( f"UPDATE feature_geometry set geometry = '{ fiksa['geometry'] }' WHERE feature_id = {fiksa['feature_id']} ;" )
 
     return output 
 

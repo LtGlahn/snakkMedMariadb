@@ -13,6 +13,8 @@ import subprocess
 import os 
 from datetime import datetime
 
+import dekodDBdump
+
 def lagCursor(secretsfile='secrets.json', database=None, AWS=True):
     """
     Leser oppkoblingsdetaljer, returnerer connnection- og cursor objekt
@@ -64,6 +66,58 @@ def lagCursor(secretsfile='secrets.json', database=None, AWS=True):
         print(f"Error: {err}")
         raise
 
+
+def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ): 
+    """
+    Leser geometri for objektene i kontrakt og sjekker og retter opp metadata de 2D objektene som har 3D metadata
+
+    ARGUMENTS
+        kontraktId:str, ID på datafangst kontrakten 
+
+    KEYWORDS
+        alle nøkkelord sendes videre til funksjonen lagCursor 
+
+    RETURNS 
+        (connection, cursor) - for å kunne interagere og gjøre evt rollback 
+    """
+
+    conn, cursor = lagCursor( **kwargs )
+
+    feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
+    featureID = [ x['id'] for x in feature2 ]
+    geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id in { featureID }", databegrensning=False )
+
+    sql_setninger = dekodDBdump.fiks2Dgeom2sql( geometri )
+
+    if len( sql_setninger ) == 0:
+        print( f"Fant ingen geometrier med feil på metadata på kontrant {kontraktId}")
+        conn.close( )
+        return (conn, cursor )
+    
+    print( f"Fant {len( sql_setninger)} objekter med 3D metadata på 2D geometri")
+
+    if dryrun: 
+        print( "DRYRU - her er SQL setningene")
+        for enSQL in sql_setninger: 
+            print( enSQL)
+
+        conn.close()
+        return (conn, cursor)
+
+    try: 
+        cursor.execute( "BEGIN TRANSACTION;")
+
+        for enSQL in sql_setninger: 
+            print( enSQL )
+            cursor.execute( enSQL )
+
+        conn.commit( )
+
+    except Exception as e: 
+        print( f"Feilmelding på SQL update: {e}, ruller tilbake")
+        conn.rollback()
+
+    return (conn, cursor)
 
 def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10', databegrensning=True ):
     """
@@ -119,14 +173,29 @@ def hentAltOmObjekt( ):
     """
     pass 
 
-def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, picklefil=None, sendTilLangbein=False ): 
+def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, picklefil=None, sendTilLangbein=False, **kwargs ): 
     """
     Henter alle data tilknyttet en kontrakt 
 
     Returnerer dictionary med en key per tabell, som hver har (potensielt tom) liste med dictionaries
+
+    ARGUMENTS
+        kontraktId:str, ID på datafangst kontrakten 
+
+    KEYWORDS
+        excelfil=None eller filnavn på excelfil som du dumpler data til 
+
+        picklefil=None eller filnavn på pickle datadump
+
+        sendTilLangbein=False. Sett til True for å få scp-kommando for å overføre data til FoU-server Langbein 
+
+        Alle andre nøkkelord sendes til funksjonen lagCursor
+
+    RETURNS
+        dictionary med en liste per tabell pluss tidsstempel 'eksportdato' 
     """
 
-    conn, cursor = lagCursor( 'secrets.json', database=database )
+    conn, cursor = lagCursor( **kwargs )
 
     resultat = {
             'eksportdato'           : datetime.now(),
