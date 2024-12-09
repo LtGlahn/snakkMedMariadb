@@ -85,7 +85,7 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
 
     feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
     featureID = [ x['id'] for x in feature2 ]
-    geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id in { featureID }", databegrensning=False )
+    geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id is in ({ ','.join( featureID ) })", databegrensning=False )
 
     sql_setninger = dekodDBdump.fiks2Dgeom2sql( geometri )
 
