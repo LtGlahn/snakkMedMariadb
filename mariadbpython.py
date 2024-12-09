@@ -111,7 +111,7 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
     print( f"Fant {len( sql_setninger)} objekter med 3D metadata på 2D geometri")
 
     if dryrun: 
-        print( "DRYRU - her er SQL setningene")
+        print( "DRYRUN - her er SQL setningene")
         for enSQL in sql_setninger: 
             print( enSQL)
 
@@ -119,7 +119,7 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
         return (conn, cursor)
 
     try: 
-        cursor.execute( "BEGIN TRANSACTION;")
+        cursor.execute( "START TRANSACTION;")
 
         for enSQL in sql_setninger: 
             print( enSQL )
@@ -130,6 +130,7 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
     except Exception as e: 
         print( f"Feilmelding på SQL update: {e}, ruller tilbake")
         conn.rollback()
+        conn.close()
 
     return (conn, cursor)
 
