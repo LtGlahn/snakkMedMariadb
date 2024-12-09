@@ -91,7 +91,9 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
             print( f"Fant ingen NVDB objekt i kontrakt {kontraktId} ???")
             conn.close()
             return  (conn, cursor)
-        geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id is in ({ ','.join( featureID ) })", databegrensning=False )
+        temp = f"where feature_id is in ({ ','.join( featureID ) })"
+        print( f"SQL setning: \n{temp}\n")
+        geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=temp, databegrensning=False )
 
     except Exception as e: 
         print( f"Datauthenting feilet: {e}")
