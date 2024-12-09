@@ -91,7 +91,7 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
             print( f"Fant ingen NVDB objekt i kontrakt {kontraktId} ???")
             conn.close()
             return  (conn, cursor)
-        temp = f"where feature_id is in ({ ','.join( featureID ) })"
+        temp = f"WHERE feature_id IN ({ ','.join( featureID ) })"
         print( f"SQL setning: \n{temp}\n")
         geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=temp, databegrensning=False )
 
