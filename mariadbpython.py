@@ -83,9 +83,21 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
 
     conn, cursor = lagCursor( **kwargs )
 
-    feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
-    featureID = [ x['id'] for x in feature2 ]
-    geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id is in ({ ','.join( featureID ) })", databegrensning=False )
+    try: 
+        # feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
+        feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
+        featureID = [ x['id'] for x in feature2 ]
+        if len( featureID ) == 0: 
+            print( f"Fant ingen NVDB objekt i kontrakt {kontraktId} ???")
+            conn.close()
+            return  (conn, cursor)
+        geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id is in ({ ','.join( featureID ) })", databegrensning=False )
+
+    except Exception as e: 
+        print( f"Datauthenting feilet: {e}")
+        conn.close()
+        return (conn, cursor)
+
 
     sql_setninger = dekodDBdump.fiks2Dgeom2sql( geometri )
 
