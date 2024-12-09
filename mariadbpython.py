@@ -86,7 +86,7 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
     try: 
         # feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
         feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
-        featureID = [ x['id'] for x in feature2 ]
+        featureID = [ "'" + x['id'] + "'" for x in feature2 ]
         if len( featureID ) == 0: 
             print( f"Fant ingen NVDB objekt i kontrakt {kontraktId} ???")
             conn.close()
