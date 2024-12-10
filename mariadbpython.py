@@ -78,35 +78,33 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
         alle nøkkelord sendes videre til funksjonen lagCursor 
 
     RETURNS 
-        (connection, cursor) - for å kunne interagere og gjøre evt rollback 
+        N/A
     """
 
     conn, cursor = lagCursor( **kwargs )
 
     try: 
-        # feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
-        feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
+        # feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
+        feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
         featureID = [ "'" + x['id'] + "'" for x in feature2 ]
         if len( featureID ) == 0: 
-            print( f"Fant ingen NVDB objekt i kontrakt {kontraktId} ???")
+            print( f"Fant ingen NVDB objekt i kontrakt {kontraktId}")
             conn.close()
-            return  (conn, cursor)
+            return
         temp = f"WHERE feature_id IN ({ ','.join( featureID ) })"
-        print( f"SQL setning: \n{temp}\n")
         geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=temp, databegrensning=False )
 
     except Exception as e: 
         print( f"Datauthenting feilet: {e}")
         conn.close()
-        return (conn, cursor)
-
+        return
 
     sql_setninger = dekodDBdump.fiks2Dgeom2sql( geometri )
 
     if len( sql_setninger ) == 0:
         print( f"Fant ingen geometrier med feil på metadata på kontrant {kontraktId}")
         conn.close( )
-        return (conn, cursor )
+        return
     
     print( f"Fant {len( sql_setninger)} objekter med 3D metadata på 2D geometri")
 
@@ -116,13 +114,13 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
             print( enSQL)
 
         conn.close()
-        return (conn, cursor)
+        return
 
     try: 
         cursor.execute( "START TRANSACTION;")
 
         for enSQL in sql_setninger: 
-            print( enSQL )
+
             cursor.execute( enSQL )
 
         conn.commit( )
@@ -132,7 +130,8 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
         conn.rollback()
         conn.close()
 
-    return (conn, cursor)
+    finally: 
+        conn.close()
 
 def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10', databegrensning=True ):
     """
