@@ -67,7 +67,69 @@ def lagCursor(secretsfile='secrets.json', database=None, AWS=True):
         raise
 
 
-def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ): 
+def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ): 
+    """
+    Fjerner datafeil interaktivt (f.eks egenskaper ikke i hht datakatalog), med et par barnesikringer 
+
+    Vil først gjøre SELECT * med modifikator (WHERE....) og du må bekrefte at du vil gå videre
+
+    ARGUMENTS
+        tabellNavn:str - navn på tabell 
+
+        modifikator:str - WHERE - statement 
+
+    KEYWORDS
+        dryrun:True, sett til False når du er klar til det
+
+        Alle andre nøkkelord sendes videre til funksjonen lagCursor
+
+    RETURNS
+        N/A
+
+    """
+    (conn, cursor) = lagCursor( **kwargs )
+
+    lesedata = hentFraTabell( tabellNavn, cursor, modifikator=modifikator )
+
+    if len( lesedata ) == 0: 
+        print( f"Ingen treff på spørringen SELECT * FROM {tabellNavn} {modifikator} ")
+        conn.close()
+        return 
+
+    print( f"{len(lesedata)} treff på spørringen SELECT * FROM {tabellNavn} {modifikator}")
+    print( f"Eksempel: \n{lesedata[0]}") 
+
+    if dryrun: 
+        print( f"DRYRUN - skriver ut flere eksempler:")
+        sample = lesedata[1:10]
+        for rad in sample:
+            print( f"\n----------------\n\n{rad}\n") 
+        print( f"Totalt {len(lesedata)} matcher spørringen SELECT * FROM {tabellNavn} {modifikator}")
+        conn.close()
+        return 
+    
+    sletteSQL = f"DELETE FROM {tabellNavn} {modifikator} ;"
+    print( sletteSQL )
+    videre = input( f"Gå videre med å slette disse {len(lesedata)} radene? [Nei] eller [ja] ? ")
+    if videre.UPPER not in ['Y', 'JA', 'YES']: 
+        conn.close()
+        return 
+
+    try: 
+        cursor.execute( "START TRANSACTION;")
+        cursor.execute( sletteSQL )
+        conn.commit( )
+
+    except Exception as e: 
+        print( f"Feilmelding på SQL update: {e}, ruller tilbake")
+        conn.rollback()
+        conn.close()
+
+    finally: 
+        conn.close()    
+
+
+def fiks2Dmetadata( kontraktId, dryrun=False, **kwargs ): 
     """
     Leser geometri for objektene i kontrakt og sjekker og retter opp metadata de 2D objektene som har 3D metadata
 
@@ -102,7 +164,7 @@ def fiks2Dmetadata( kontraktId, dryrun=True, **kwargs ):
     sql_setninger = dekodDBdump.fiks2Dgeom2sql( geometri )
 
     if len( sql_setninger ) == 0:
-        print( f"Fant ingen geometrier med feil på metadata på kontrant {kontraktId}")
+        print( f"Fant ingen geometrier med feil på metadata på kontrakt {kontraktId}")
         conn.close( )
         return
     
