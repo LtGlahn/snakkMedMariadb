@@ -111,7 +111,7 @@ def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ):
     sletteSQL = f"DELETE FROM {tabellNavn} {modifikator} ;"
     print( sletteSQL )
     videre = input( f"Gå videre med å slette disse {len(lesedata)} radene? [Nei] eller [ja] ? ")
-    if videre.UPPER not in ['Y', 'JA', 'YES']: 
+    if videre.UPPER() not in ['Y', 'JA', 'YES']: 
         conn.close()
         return 
 
