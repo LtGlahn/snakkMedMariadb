@@ -501,6 +501,7 @@ def fjernHoydeMetadataFra2Dgeom( geomobj:dict ):
         newgeomobj['geometry'] = json.dumps( geom )
         return newgeomobj 
 
+
 def fiks2Dgeom2sql( feature_geometry:list ): 
     """
     Returnerer liste med SQL setninger for de objektene som har ugyldige 3D metadata for 2D geometrier 

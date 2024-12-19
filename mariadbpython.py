@@ -121,9 +121,9 @@ def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ):
         conn.commit( )
 
     except Exception as e: 
-        print( f"Feilmelding på SQL update: {e}, ruller tilbake")
         conn.rollback()
         conn.close()
+        print( f"SQL-kommando feiler: {sletteSQL}\nFeilmelding: {e}, ruller tilbake")
 
     finally: 
         conn.close()    
