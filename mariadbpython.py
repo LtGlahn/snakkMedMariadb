@@ -12,8 +12,63 @@ import json
 import subprocess
 import os 
 from datetime import datetime
+import re
 
 import dekodDBdump
+
+def finnRelasjonsfeil( kontraktId:str, nvdbId): 
+    """
+    Vil generere spørringer som identifiserer (og kan slette) feil relasjonsoppføringer
+    Ref https://www.vegvesen.no/wiki/display/NP/AVVIST+fra+Skriv+uten+tilbakemelding og 
+    https://www.vegvesen.no/jira/browse/NVDB-8669 
+
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <fault xmlns="http://nvdb.vegvesen.no/apiskriv/fault/v1">
+        <messages>
+            <message>delvisOppdater.vegobjekter[3].assosiasjoner[0]: nvdbId må være unik innenfor dette 
+            elementet, men fant duplikater for [101662573]
+        </message>
+    </messages>
+    </fault> 
+
+    ARGUMENTS
+        kontraktId 
+    """
+    if isinstance( nvdbId, int): 
+        nvdbId = [ nvdbId ]
+
+    raise NotImplementedError("Denne funksjonen er ikke implementert ennå" )
+
+
+def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str: 
+    """
+    Dekoder SKRIV feilmelding ang duplikate relasjoner og returnerer SQL-setning for å finne dem 
+
+    Typisk form på feilmelding:
+    <message>delvisOppdater.vegobjekter[0].assosiasjoner[0]: nvdbId må være unik innenfor dette elementet, men fant duplikater for [1019775349, 1019775381]</message>
+
+    Returnerer SQL-formatert liste på formen "IN (1019775349, 1019775381)
+
+    MERK: ENKLE relasjonsfeil har en WRITE-operasjon som skal rettes til READ. 
+    Øvrige relasjonsfeil SLETTES, ref https://www.vegvesen.no/wiki/display/NP/AVVIST+fra+Skriv+uten+tilbakemelding 
+    """
+
+    # Plukker ut liste med alle "fant duplikater"
+    duplikater = duplikater = re.findall( r'fant duplikater for \[(.*?)\]', feilmedling) 
+    # duplikater = ['1019775349, 1019775381'], potensielt flere element i denne listen
+    
+    if len( duplikater ) == 0: 
+        print( f"Fant ingen meldinger om duplikate relasjoner på formen delvisOppdater.vegobjekter[0].assosiasjoner[0]: nvdbId må være unik innenfor dette elementet, men fant duplikater for [1019775349, 1019775381]")
+        return 
+
+    if enkel: 
+        # SQL = f"SELECT * FROM feature_association2 WHERE project_id like {kontrakt} AND child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
+        SQL = f"SELECT * FROM feature_association2 WHERE child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
+
+    else: 
+        SQL = f"SELECT * FROM feature_association2 WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( duplikater) } ))"
+         
+    return SQL 
 
 def lagCursor(secretsfile='secrets.json', database=None, AWS=True):
     """
