@@ -503,14 +503,16 @@ def fjernHoydeMetadataFra2Dgeom( geomobj:dict, flateDetaljer=False ):
         return newgeomobj 
 
 
-def fiks2Dgeom2sql( feature_geometry:list ): 
+def fiks2Dgeom2sql( feature_geometry:list, flateDetaljer=False ): 
     """
     Returnerer liste med SQL setninger for de objektene som har ugyldige 3D metadata for 2D geometrier 
+
+    flateDetaljer = False vil IKKE skrive detaljert logg til konsollet (gjelder geoometritypen POLYGON, som ikke er implementert ennå)
     """
 
     output = []
     for ii, geomobj in enumerate( feature_geometry): 
-        fiksa = fjernHoydeMetadataFra2Dgeom( geomobj )
+        fiksa = fjernHoydeMetadataFra2Dgeom( geomobj, flateDetaljer=flateDetaljer )
         if isinstance( fiksa, dict): 
             print( f"Feature geometry {ii} ID {fiksa['feature_id'] } må fikses") 
 
