@@ -432,7 +432,7 @@ def endringsettVegobjekter( endringssett:dict ):
 
     return returdata
 
-def fjernHoydeMetadataFra2Dgeom( geomobj:dict ): 
+def fjernHoydeMetadataFra2Dgeom( geomobj:dict, flateDetaljer=False ): 
     """
     Retter opp i metadata høyde for 2D geometrier
 
@@ -457,10 +457,10 @@ def fjernHoydeMetadataFra2Dgeom( geomobj:dict ):
         geomobj:dict, et objekt fra Datafangst tabellen feature_geometry 
 
     KEYWORDS 
-        N/A
+        flateDetaljer = False (default). Sett lik True for å skrive data om flategeometri til konsollet
 
     RETURNS
-        NONE eller dict. Returnerer gyldig 2D geometri der vi har fjernet metadata for høyde
+        NONE eller dict. Returnerer gyldig 2D geometri der vi har fjernet metadata for høyde for de objektene med dette problemet
     """
 
     newgeomobj = deepcopy( geomobj ) # Unngå snåle bieffekter av at vi endrer på ting utafor scope til funksjonen
@@ -475,8 +475,9 @@ def fjernHoydeMetadataFra2Dgeom( geomobj:dict ):
         if isinstance( geom['shape']['positions'][0]['height'], float):
             return None 
     else: 
-        print( f"IKKE IMPLEMENTERT geometritype= {geom['type']}, hopper over men her er datadump\n")
-        print( json.dumps( geom, indent=4 ))
+        print( f"IKKE IMPLEMENTERT geometritype= {geom['type']}, hopper over")
+        if flateDetaljer: 
+            print( json.dumps( geom, indent=4 ))
         return None 
         # raise NotImplemented( f"Har ikke implementert støtte for geometritype {geom['type']}")
     
