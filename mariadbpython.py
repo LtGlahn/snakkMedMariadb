@@ -376,7 +376,8 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
         if len( resultat['file']) > 0: 
             for enFil in resultat['file']: 
                 file_id.append( f"'{enFil['id']}'") # Må ha ID omsluttet av enkle anførselstegn
-            modifikator = f"WHERE project_id = '{kontraktId}' AND  file_id in ( {''.join(file_id)})"
+            # modifikator = f"WHERE project_id = '{kontraktId}' AND  file_id in ( {''.join(file_id)})"
+            modifikator = f"WHERE  file_id in ( {''.join(file_id)})"
             resultat['file_data'] = hentFraTabell( 'file_data', cursor, modifikator=modifikator,  databegrensning=False )
         else: 
             print( f"Fant ingen filer på denne kontrakten")
