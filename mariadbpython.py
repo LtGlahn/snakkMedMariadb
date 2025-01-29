@@ -304,7 +304,7 @@ def hentAltOmObjekt( ):
     """
     pass 
 
-def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, picklefil=None, sendTilLangbein=False, **kwargs ): 
+def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, picklefil=None, sendTilLangbein=False, taMedFiler=False, **kwargs ): 
     """
     Henter alle data tilknyttet en kontrakt 
 
@@ -321,6 +321,8 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
         sendTilLangbein=False. Sett til True for å få scp-kommando for å overføre data til FoU-server Langbein 
 
         Alle andre nøkkelord sendes til funksjonen lagCursor
+
+        taMedFiler=False . Sett til True om du skal ta med rådata (opplastede SOSI eller JSON filer)
 
     RETURNS
         dictionary med en liste per tabell pluss tidsstempel 'eksportdato' 
@@ -368,6 +370,16 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
 
         lock = hentFraTabell( 'feature_locks', cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_locks'].extend( lock )
+
+    if taMedFiler == True: 
+        file_id = []
+        if len( resultat['file']) > 0: 
+            for enFil in resultat['file']: 
+                file_id.append( f"'{enFil['id']}'") # Må ha ID omsluttet av enkle anførselstegn
+            modifikator = f"WHERE project_id = '{kontraktId}' AND  file_id in ( {''.join(file_id)})"
+            resultat['file_data'] = hentFraTabell( 'file_data', cursor, modifikator=modifikator,  databegrensning=False )
+        else: 
+            print( f"Fant ingen filer på denne kontrakten")
 
     cursor.close()
     conn.close()
