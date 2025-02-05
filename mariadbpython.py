@@ -184,7 +184,7 @@ def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ):
         conn.close()    
 
 
-def fiks2Dmetadata( kontraktId, dryrun=False, **kwargs ): 
+def fiks2Dmetadata( kontraktId, dryrun=False, kunNVDBobjekt=True, **kwargs ): 
     """
     Leser geometri for objektene i kontrakt og sjekker og retter opp metadata de 2D objektene som har 3D metadata
 
@@ -201,11 +201,15 @@ def fiks2Dmetadata( kontraktId, dryrun=False, **kwargs ):
     conn, cursor = lagCursor( **kwargs )
 
     try: 
-        # feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
-        feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
+        if kunNVDBobjekt==True: 
+            feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
+        else: 
+            # Henter for ALLE features, ikke bare eksisterende NVDB geometri
+            feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
+            
         featureID = [ "'" + x['id'] + "'" for x in feature2 ]
         if len( featureID ) == 0: 
-            print( f"Fant ingen NVDB objekt i kontrakt {kontraktId}")
+            print( f"Fant ingen objekt i kontrakt {kontraktId}")
             conn.close()
             return
         temp = f"WHERE feature_id IN ({ ','.join( featureID ) })"
