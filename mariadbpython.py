@@ -46,7 +46,7 @@ def finnTempIdDuplikat( tempId:list, cursor ):
 
     NB! tempID må ha slike anførselstegn ' som mySQL godtar ! Slik som funksjonen dekodSKRIVassosiasjonsfeil returnerer  
     """
-    modifikator = f"WHERE child_feature_id in( {','.join( tempId ) }" 
+    modifikator = f"WHERE child_feature_id in ( {','.join( tempId ) } )" 
     assert   "'" in modifikator, f"I listen med tempId må hver tempId ha enkelt anførselstegn ' foran og bak"
     SLETT = []
     rel = hentFraTabell( 'feature_association2', cursor, modifikator=modifikator )
