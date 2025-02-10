@@ -61,15 +61,33 @@ def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str
         print( f"Fant ingen meldinger om duplikate relasjoner på formen delvisOppdater.vegobjekter[0].assosiasjoner[0]: nvdbId må være unik innenfor dette elementet, men fant duplikater for [1019775349, 1019775381]")
         return 
 
+    # Deler opp NVDB id og tempID. Må også ta høyde for at det er mer enn ett element per linje 
+    nvdbDuplikat = []
+    nyeDuplikat = []
+    for treff in duplikater: 
+        if ',' in treff: 
+            treffListe = treff.split( ',')
+        else: 
+            treffListe = [ treff ]
+        
+        for dupId in treffListe: 
+            try: 
+                int( dupId )
+            except ValueError: 
+                nyeDuplikat.append(  "'" + dupId + "'"  )
+            else: 
+                nvdbDuplikat.append( dupId )
 
+    if len( nyeDuplikat ) > 0: 
+        print( f"Nye duplikater: \n\nin ({','.join( nyeDuplikat)})\n\n")
 
+    if len( nvdbDuplikat) > 0: 
+        if enkel: 
+            # SQL = f"SELECT * FROM feature_association2 WHERE project_id like {kontrakt} AND child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
+            SQL = f"WHERE child_feature_nvdb_id IN ( " + ", ".join( nvdbDuplikat ) + " )" 
 
-    if enkel: 
-        # SQL = f"SELECT * FROM feature_association2 WHERE project_id like {kontrakt} AND child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
-        SQL = f"WHERE child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
-
-    else: 
-        SQL = f"WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( duplikater) } ))"
+        else: 
+            SQL = f"WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( nvdbDuplikat) } ))"
          
     return SQL 
 
