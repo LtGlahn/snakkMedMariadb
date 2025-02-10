@@ -54,19 +54,22 @@ def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str
     """
 
     # Plukker ut liste med alle "fant duplikater"
-    duplikater = duplikater = re.findall( r'fant duplikater for \[(.*?)\]', feilmedling) 
+    duplikater = duplikater = re.findall( r'fant duplikater for\s+\[(.*?)\]', feilmedling) 
     # duplikater = ['1019775349, 1019775381'], potensielt flere element i denne listen
     
     if len( duplikater ) == 0: 
         print( f"Fant ingen meldinger om duplikate relasjoner på formen delvisOppdater.vegobjekter[0].assosiasjoner[0]: nvdbId må være unik innenfor dette elementet, men fant duplikater for [1019775349, 1019775381]")
         return 
 
+
+
+
     if enkel: 
         # SQL = f"SELECT * FROM feature_association2 WHERE project_id like {kontrakt} AND child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
-        SQL = f"SELECT * FROM feature_association2 WHERE child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
+        SQL = f"WHERE child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
 
     else: 
-        SQL = f"SELECT * FROM feature_association2 WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( duplikater) } ))"
+        SQL = f"WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( duplikater) } ))"
          
     return SQL 
 
