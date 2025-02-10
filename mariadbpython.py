@@ -49,7 +49,7 @@ def finnTempIdDuplikat( tempId:list, cursor ):
     modifikator = f"WHERE child_feature_id in( {','.join( tempId ) }" 
     assert   "'" in modifikator, f"I listen med tempId må hver tempId ha enkelt anførselstegn ' foran og bak"
     SLETT = []
-    rel = mariadbpython.hentFraTabell( 'feature_association2', cursor, modifikator=modifikator )
+    rel = hentFraTabell( 'feature_association2', cursor, modifikator=modifikator )
     mydf = pd.DataFrame( rel )
     for child in mydf['child_feature_id'].unique(): 
         temp = mydf[ mydf['child_feature_id'] == child ]
