@@ -40,6 +40,27 @@ def finnRelasjonsfeil( kontraktId:str, nvdbId):
     raise NotImplementedError("Denne funksjonen er ikke implementert ennå" )
 
 
+def finnTempIdDuplikat( tempId:list, cursor ): 
+    """
+    Finner alle duplikate relasjoner for tempId. Returnerer SQL-modifikator for å finne eller fjerne det overflødige 
+
+    NB! tempID må ha slike anførselstegn ' som mySQL godtar ! Slik som funksjonen dekodSKRIVassosiasjonsfeil returnerer  
+    """
+    modifikator = f"WHERE child_feature_id in( {','.join( tempId ) }" 
+    assert   "'" in modifikator, f"I listen med tempId må hver tempId ha enkelt anførselstegn ' foran og bak"
+    SLETT = []
+    rel = mariadbpython.hentFraTabell( 'feature_association2', cursor, modifikator=modifikator )
+    mydf = pd.DataFrame( rel )
+    for child in mydf['child_feature_id'].unique(): 
+        temp = mydf[ mydf['child_feature_id'] == child ]
+        slettDF = temp[ temp['parent_feature_id'].duplicated()]
+        SLETT.extend( list( slettDF['id'].unique() ) )
+
+    slett2 = [ "'" + x + "'" for x in SLETT ]
+    modifikator = f"WHERE id in ({','.join( slett2 )})"
+    return slett2 
+
+
 def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str: 
     """
     Dekoder SKRIV feilmelding ang duplikate relasjoner og returnerer SQL-setning for å finne dem 
@@ -78,18 +99,20 @@ def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str
             else: 
                 nvdbDuplikat.append( dupId )
 
+    returdata = {}
+
     if len( nyeDuplikat ) > 0: 
+        returdata['tempId'] = nyeDuplikat
         print( f"Nye duplikater: \n\nin ({','.join( nyeDuplikat)})\n\n")
+         
 
     if len( nvdbDuplikat) > 0: 
-        if enkel: 
-            # SQL = f"SELECT * FROM feature_association2 WHERE project_id like {kontrakt} AND child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
-            SQL = f"WHERE child_feature_nvdb_id IN ( " + ", ".join( nvdbDuplikat ) + " )" 
+        # SQL = f"SELECT * FROM feature_association2 WHERE project_id like {kontrakt} AND child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
+        returdata['enkelNVDB'] = f"WHERE child_feature_nvdb_id IN ( " + ", ".join( nvdbDuplikat ) + " )" 
 
-        else: 
-            SQL = f"WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( nvdbDuplikat) } ))"
+        returdata['vrienNVDB'] = f"WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( nvdbDuplikat) } ))"
          
-    return SQL 
+    return returdata
 
 def lagCursor(secretsfile='secrets.json', database=None, AWS=True):
     """
