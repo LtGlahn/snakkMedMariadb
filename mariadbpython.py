@@ -51,14 +51,16 @@ def finnTempIdDuplikat( tempId:list, cursor ):
     SLETT = []
     rel = hentFraTabell( 'feature_association2', cursor, modifikator=modifikator )
     mydf = pd.DataFrame( rel )
+    print( f"Spørringen med {len(tempId)} relasjoner gir {len(mydf)} treff: {modifikator}")
     for child in mydf['child_feature_id'].unique(): 
         temp = mydf[ mydf['child_feature_id'] == child ]
         slettDF = temp[ temp['parent_feature_id'].duplicated()]
+        print( f"child_feature_id={child} gir {len(temp)} treff, fjerner {len(slettDF)} duplikater med samme parent_feature_id" )        
         SLETT.extend( list( slettDF['id'].unique() ) )
 
     slett2 = [ "'" + x + "'" for x in SLETT ]
     modifikator = f"WHERE id in ({','.join( slett2 )})"
-    return slett2 
+    return modifikator 
 
 
 def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str: 
