@@ -16,64 +16,64 @@ import re
 
 import dekodDBdump
 
-def finnRelasjonsfeil( kontraktId:str, nvdbId): 
+
+
+def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, cursor=None, **kwargs) -> str: 
     """
-    Vil generere spørringer som identifiserer (og kan slette) feil relasjonsoppføringer
-    Ref https://www.vegvesen.no/wiki/display/NP/AVVIST+fra+Skriv+uten+tilbakemelding og 
-    https://www.vegvesen.no/jira/browse/NVDB-8669 
-
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <fault xmlns="http://nvdb.vegvesen.no/apiskriv/fault/v1">
-        <messages>
-            <message>delvisOppdater.vegobjekter[3].assosiasjoner[0]: nvdbId må være unik innenfor dette 
-            elementet, men fant duplikater for [101662573]
-        </message>
-    </messages>
-    </fault> 
-
-    ARGUMENTS
-        kontraktId 
-    """
-    if isinstance( nvdbId, int): 
-        nvdbId = [ nvdbId ]
-
-    raise NotImplementedError("Denne funksjonen er ikke implementert ennå" )
-
-
-def finnTempIdDuplikat( tempId:list, cursor ): 
-    """
-    Finner alle duplikate relasjoner for tempId. Returnerer SQL-modifikator for å finne eller fjerne det overflødige 
-
-    NB! tempID må ha slike anførselstegn ' som mySQL godtar ! Slik som funksjonen dekodSKRIVassosiasjonsfeil returnerer  
-    """
-    modifikator = f"WHERE child_feature_id in ( {','.join( tempId ) } )" 
-    assert   "'" in modifikator, f"I listen med tempId må hver tempId ha enkelt anførselstegn ' foran og bak"
-    SLETT = []
-    rel = hentFraTabell( 'feature_association2', cursor, modifikator=modifikator )
-    mydf = pd.DataFrame( rel )
-    print( f"Spørringen med {len(tempId)} relasjoner gir {len(mydf)} treff: {modifikator}")
-    for child in mydf['child_feature_id'].unique(): 
-        temp = mydf[ mydf['child_feature_id'] == child ]
-        slettDF = temp[ temp['parent_feature_id'].duplicated()]
-        print( f"child_feature_id={child} gir {len(temp)} treff, fjerner {len(slettDF)} duplikater med samme parent_feature_id" )        
-        SLETT.extend( list( slettDF['id'].unique() ) )
-
-    slett2 = [ "'" + x + "'" for x in SLETT ]
-    modifikator = f"WHERE id in ({','.join( slett2 )})"
-    return modifikator 
-
-
-def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str: 
-    """
-    Dekoder SKRIV feilmelding ang duplikate relasjoner og returnerer SQL-setning for å finne dem 
+    Dekoder SKRIV feilmelding ang duplikate relasjoner og returnerer WHERE-delen av SQL-setning for å finne evt fjerne dem 
 
     Typisk form på feilmelding:
-    <message>delvisOppdater.vegobjekter[0].assosiasjoner[0]: nvdbId må være unik innenfor dette elementet, men fant duplikater for [1019775349, 1019775381]</message>
+    <message>delvisOppdater.vegobjekter[0].assosiasjoner[0]: nvdbId må være unik innenfor dette elementet, men 
+    fant duplikater for [1019775349, 1019775381]</message>
 
-    Returnerer SQL-formatert liste på formen "IN (1019775349, 1019775381)
+    eller 
+     <message>delvisOppdater.vegobjekter[2].assosiasjoner[0]: tempId må være unik innenfor dette elementet, men 
+     fant duplikater for [6151a44b-7313-442d-a7e9-d96e3c47741f]</message>
 
-    MERK: ENKLE relasjonsfeil har en WRITE-operasjon som skal rettes til READ. 
-    Øvrige relasjonsfeil SLETTES, ref https://www.vegvesen.no/wiki/display/NP/AVVIST+fra+Skriv+uten+tilbakemelding 
+    ARGUMENTS
+        feilmelding: string. 
+        Pro-tip: Lim feilmeldingen inn i teksteditor og legg til 3 x doble anførselstegn før og etter feilmeldingen 
+        på denne måten
+            feil=\"\"\"
+            selve feilmeldingene fra SKRIV
+            \"\"\"
+        Da kan du bruke utklippstavla og lime direkte inn i python REPL. 
+        Trickset her er at python tolker alt mellom tre første og tre siste doble anførselstegn som ren tekst
+
+        
+        kontrakt: str Id til datafangst kontrakt. Brukes til å konstruere den sammensatte (vriene) SQL-spørringe
+    KEYWORDS 
+        cursor: Hvis ønskelig kan du sende inn ditt eget cursor-objekt for spørringer mot databasen. 
+        Hvis ikke så oppretter vi ny forbindelse med (conn,cursor)=lagCursor(**kwargs) og lukker den etterpå
+
+        **kwargs: Eventuelle andre argument sendes til lagCursor-funksjonen
+
+    RETURNS 
+
+        Returnerer dictionary med 1-3 SQL-formatert WHERE-setninger, 
+        eksempel "WHERE child_feature_nvdb_id IN (1019775349, 1019775381) 
+        Disse kan brukes direkte i spørringer mot relasjonstabellen feature_association2
+
+        Innhold i returdata varierer etter om det finnes tempId eller nvdbId feilmelding, evt en kombinasjon: 
+            tempId: Her har vi hoppet over den relasjonen som skal overleve og laget WHERE-statement 
+                    for å finne og slette den eller de andre overflødige 
+                    returdata['tempId'] = WHERE id in ('c5a2b8be-4709-422a-a5ac-0fe38f2a79ab')
+
+            enkelNVDB: WHERE-statement for å finne og evt modifisere relasjoner basert på child_feature_nvdb_id
+                    returdata['enkelNVDB'] = WHERE child_feature_nvdb_id IN ( 84144882, 904683062 )
+                    
+            vrienNVDB: WHERE-statement for å finne og evt slette relasjoner til NVDB objekt der child_feature_nvdb_id 
+                    ikke er fyllt ut, og vi i stedet må gå via child_feature_id  
+                    returdata['vrienNVDB'] = WHERE child_feature_id in ( 
+                                                SELECT id from feature2 
+                                                    WHERE project_id = '472d8eea-e7a7-40a1-8978-2ccddd726b5b' 
+                                                        AND nvdb_id in (84144882, 904683062 )
+                                                )
+
+            
+    Referanse:
+        https://www.vegvesen.no/wiki/pages/viewpage.action?pageId=306100598
+        https://www.vegvesen.no/wiki/display/NP/AVVIST+fra+Skriv+uten+tilbakemelding 
     """
 
     # Plukker ut liste med alle "fant duplikater"
@@ -104,9 +104,35 @@ def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, enkel=True) -> str
     returdata = {}
 
     if len( nyeDuplikat ) > 0: 
-        returdata['tempId'] = nyeDuplikat
+        
         print( f"Nye duplikater: \n\nin ({','.join( nyeDuplikat)})\n\n")
-         
+
+        modifikator = f"WHERE child_feature_id in ( {','.join( nyeDuplikat ) } )" 
+        assert   "'" in modifikator, f"I listen med tempId må hver tempId ha enkelt anførselstegn ' foran og bak"
+        SLETT = []
+        if cursor is None: 
+            (conn, cursor) = lagCursor( **kwargs )
+            lukkForbindelse=True 
+        else: 
+            lukkForbindelse=False 
+
+        rel = hentFraTabell( 'feature_association2', cursor=cursor, modifikator=modifikator )
+        if lukkForbindelse:
+            conn.close( ) 
+    
+        # Plukker ut duplikater 
+        mydf = pd.DataFrame( rel )
+        print( f"Spørringen med {len(nyeDuplikat)} relasjoner gir {len(mydf)} treff: {modifikator}")
+        for child in mydf['child_feature_id'].unique(): 
+            temp = mydf[ mydf['child_feature_id'] == child ]
+            slettDF = temp[ temp['parent_feature_id'].duplicated()]
+            print( f"\tchild_feature_id={child} gir {len(temp)} treff, fjerner {len(slettDF)} duplikater med samme parent_feature_id" )        
+            SLETT.extend( list( slettDF['id'].unique() ) )
+
+        # Legger på de fnuttene som SQL må ha foran UUID tekststreng
+        slett2 = [ "'" + x + "'" for x in SLETT ]
+
+        returdata['tempId'] = f"WHERE id in ({','.join( slett2 )})"
 
     if len( nvdbDuplikat) > 0: 
         # SQL = f"SELECT * FROM feature_association2 WHERE project_id like {kontrakt} AND child_feature_nvdb_id IN ( " + ", ".join( duplikater ) + " )" 
@@ -168,7 +194,7 @@ def lagCursor(secretsfile='secrets.json', database=None, AWS=True):
         raise
 
 
-def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ): 
+def slettfeil( tabellNavn:str, modifikator:str, dryrun=True, **kwargs ): 
     """
     Fjerner datafeil interaktivt (f.eks egenskaper ikke i hht datakatalog), med et par barnesikringer 
 
@@ -181,6 +207,7 @@ def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ):
 
     KEYWORDS
         dryrun:True, sett til False når du er klar til det
+                    MERK at du da får et spørsmål i REPL der du må svare med ordet ja
 
         Alle andre nøkkelord sendes videre til funksjonen lagCursor
 
@@ -190,7 +217,7 @@ def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ):
     """
     (conn, cursor) = lagCursor( **kwargs )
 
-    lesedata = hentFraTabell( tabellNavn, cursor, modifikator=modifikator )
+    lesedata = hentFraTabell( tabellNavn, cursor=cursor, modifikator=modifikator )
 
     if len( lesedata ) == 0: 
         print( f"Ingen treff på spørringen SELECT * FROM {tabellNavn} {modifikator} ")
@@ -213,6 +240,7 @@ def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ):
     print( sletteSQL )
     videre = input( f"Gå videre med å slette disse {len(lesedata)} radene? [Nei] eller [ja] ? ")
     if videre.upper() not in ['Y', 'JA', 'YES']: 
+        print( f"Avbryter...")
         conn.close()
         return 
 
@@ -225,6 +253,9 @@ def slettfeil( tabellNavn:str, modifikator, dryrun=True, **kwargs ):
         conn.rollback()
         conn.close()
         print( f"SQL-kommando feiler: {sletteSQL}\nFeilmelding: {e}, ruller tilbake")
+
+    else: 
+        print(f"SUKSESS med SQL: {sletteSQL}" )
 
     finally: 
         conn.close()    
@@ -248,10 +279,10 @@ def fiks2Dmetadata( kontraktId, dryrun=False, kunNVDBobjekt=True, **kwargs ):
 
     try: 
         if kunNVDBobjekt==True: 
-            feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
+            feature2 = hentFraTabell( 'feature2', cursor=cursor, modifikator=f"where project_id  = '{kontraktId}' AND nvdb_id is not NULL", databegrensning=False )
         else: 
             # Henter for ALLE features, ikke bare eksisterende NVDB geometri
-            feature2 = hentFraTabell( 'feature2', cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
+            feature2 = hentFraTabell( 'feature2', cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'", databegrensning=False )
             
         featureID = [ "'" + x['id'] + "'" for x in feature2 ]
         if len( featureID ) == 0: 
@@ -259,7 +290,7 @@ def fiks2Dmetadata( kontraktId, dryrun=False, kunNVDBobjekt=True, **kwargs ):
             conn.close()
             return
         temp = f"WHERE feature_id IN ({ ','.join( featureID ) })"
-        geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=temp, databegrensning=False )
+        geometri = hentFraTabell( 'feature_geometry', cursor=cursor, modifikator=temp, databegrensning=False )
 
     except Exception as e: 
         print( f"Datauthenting feilet: {e}")
@@ -300,10 +331,16 @@ def fiks2Dmetadata( kontraktId, dryrun=False, kunNVDBobjekt=True, **kwargs ):
     finally: 
         conn.close()
 
-def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10', databegrensning=True ):
+def hentFraTabell( tabellNavn:str, cursor=None, modifikator='LIMIT 10', databegrensning=True, **kwargs ):
     """
     Henter data fra angitt tabell. Modifikator kan f.eks være WHERE  - statement eller noe sånt. 
     """
+    
+    if cursor is None: 
+        (conn, cursor) = lagCursor( **kwargs )
+        lukkForbindelse=True
+    else: 
+        lukkForbindelse=False 
 
     skjema = hentSkjema( tabellNavn, cursor )
 
@@ -318,6 +355,9 @@ def hentFraTabell( tabellNavn:str, cursor, modifikator='LIMIT 10', databegrensni
         for ii, col in enumerate(row): 
             myRow[ skjema['FieldNames'][ii] ] = col
         data.append( myRow )
+
+    if lukkForbindelse: 
+        conn.close()
 
     return data 
 
@@ -390,35 +430,35 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
             'file'                  : [],
             }
 
-    resultat['project']                 = hentFraTabell( 'project',             cursor, modifikator=f"where id          = '{kontraktId}'")
-    resultat['comment']                 = hentFraTabell( 'comment',             cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['contract_change']         = hentFraTabell( 'contract_change',     cursor, modifikator=f"where contract_id = '{kontraktId}'")
-    resultat['contract_visit']          = hentFraTabell( 'contract_visit',      cursor, modifikator=f"where contract_id = '{kontraktId}'")
-    resultat['event']                   = hentFraTabell( 'event',               cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['feature2']                = hentFraTabell( 'feature2',            cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['nvdb_submission']         = hentFraTabell( 'nvdb_submission',     cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['project_locks']           = hentFraTabell( 'project_locks',       cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['project_map_comment']     = hentFraTabell( 'project_map_comment', cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['project_milestone']       = hentFraTabell( 'project_milestone',   cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['validation_issue2']       = hentFraTabell( 'validation_issue2',   cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['file']                    = hentFraTabell( 'file',                cursor, modifikator=f"where project_id  = '{kontraktId}'")
-    resultat['user_role']               = hentFraTabell( 'user_role',           cursor, modifikator=f"where contract_id = '{kontraktId}'")
+    resultat['project']                 = hentFraTabell( 'project',             cursor=cursor, modifikator=f"where id          = '{kontraktId}'")
+    resultat['comment']                 = hentFraTabell( 'comment',             cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['contract_change']         = hentFraTabell( 'contract_change',     cursor=cursor, modifikator=f"where contract_id = '{kontraktId}'")
+    resultat['contract_visit']          = hentFraTabell( 'contract_visit',      cursor=cursor, modifikator=f"where contract_id = '{kontraktId}'")
+    resultat['event']                   = hentFraTabell( 'event',               cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['feature2']                = hentFraTabell( 'feature2',            cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['nvdb_submission']         = hentFraTabell( 'nvdb_submission',     cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['project_locks']           = hentFraTabell( 'project_locks',       cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['project_map_comment']     = hentFraTabell( 'project_map_comment', cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['project_milestone']       = hentFraTabell( 'project_milestone',   cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['validation_issue2']       = hentFraTabell( 'validation_issue2',   cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['file']                    = hentFraTabell( 'file',                cursor=cursor, modifikator=f"where project_id  = '{kontraktId}'")
+    resultat['user_role']               = hentFraTabell( 'user_role',           cursor=cursor, modifikator=f"where contract_id = '{kontraktId}'")
 
 
     for feat in resultat['feature2']:
-        relasjoner = hentFraTabell( 'feature_association2', cursor, modifikator=f"where parent_feature_id = '{feat['id']}' or child_feature_id = '{feat['id']}' ")
+        relasjoner = hentFraTabell( 'feature_association2', cursor=cursor, modifikator=f"where parent_feature_id = '{feat['id']}' or child_feature_id = '{feat['id']}' ")
         resultat['feature_association2'].extend( relasjoner )
 
-        egenskaper = hentFraTabell( 'feature_attribute2', cursor, modifikator=f"where feature_id = '{feat['id']}'")
+        egenskaper = hentFraTabell( 'feature_attribute2', cursor=cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_attribute2'].extend( egenskaper )
 
-        geometri = hentFraTabell( 'feature_geometry', cursor, modifikator=f"where feature_id = '{feat['id']}'")
+        geometri = hentFraTabell( 'feature_geometry', cursor=cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_geometry'].extend( geometri )
 
-        stedfesting = hentFraTabell( 'feature_locational2', cursor, modifikator=f"where feature_id = '{feat['id']}'")
+        stedfesting = hentFraTabell( 'feature_locational2', cursor=cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_locational2'].extend( stedfesting )
 
-        lock = hentFraTabell( 'feature_locks', cursor, modifikator=f"where feature_id = '{feat['id']}'")
+        lock = hentFraTabell( 'feature_locks', cursor=cursor, modifikator=f"where feature_id = '{feat['id']}'")
         resultat['feature_locks'].extend( lock )
 
     if taMedFiler == True: 
@@ -428,7 +468,7 @@ def hentAltFraKontrakt( kontraktId, database='datafangst', excelfil=None, pickle
                 file_id.append( f"'{enFil['id']}'") # Må ha ID omsluttet av enkle anførselstegn
             # modifikator = f"WHERE project_id = '{kontraktId}' AND  file_id in ( {''.join(file_id)})"
             modifikator = f"WHERE  file_id in ( {''.join(file_id)})"
-            resultat['file_data'] = hentFraTabell( 'file_data', cursor, modifikator=modifikator,  databegrensning=False )
+            resultat['file_data'] = hentFraTabell( 'file_data', cursor=cursor, modifikator=modifikator,  databegrensning=False )
         else: 
             print( f"Fant ingen filer på denne kontrakten")
 
