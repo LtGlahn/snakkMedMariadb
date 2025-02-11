@@ -126,8 +126,11 @@ def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, cursor=None, **kwa
         for child in mydf['child_feature_id'].unique(): 
             temp = mydf[ mydf['child_feature_id'] == child ]
             slettDF = temp[ temp['parent_feature_id'].duplicated()]
-            print( f"\tchild_feature_id={child} gir {len(temp)} treff, fjerner {len(slettDF)} duplikater med samme parent_feature_id" )        
+            print( f"\tchild_feature_id={child} gir {len(temp)} treff med samme parent_feature_id, returnerer SQL for å fjerne {len(slettDF)} av dem" )        
             SLETT.extend( list( slettDF['id'].unique() ) )
+
+        if len( SLETT ) > 0: 
+            print( f"Returnerer SQL for å fjerne totalt {len(SLETT)} duplikate relasjoner til nye objekt")
 
         # Legger på de fnuttene som SQL må ha foran UUID tekststreng
         slett2 = [ "'" + x + "'" for x in SLETT ]
@@ -327,6 +330,9 @@ def fiks2Dmetadata( kontraktId, dryrun=False, kunNVDBobjekt=True, **kwargs ):
         print( f"Feilmelding på SQL update: {e}, ruller tilbake")
         conn.rollback()
         conn.close()
+
+    else: 
+        print(f"SUKSESS med å rette opp metadata for {len(sql_setninger)} 2D geometrier")
 
     finally: 
         conn.close()
