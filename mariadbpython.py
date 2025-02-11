@@ -142,6 +142,8 @@ def dekodSKRIVassosiasjonfeil( feilmedling:str, kontrakt:str, cursor=None, **kwa
         returdata['enkelNVDB'] = f"WHERE child_feature_nvdb_id IN ( " + ", ".join( nvdbDuplikat ) + " )" 
 
         returdata['vrienNVDB'] = f"WHERE child_feature_id in ( SELECT id from feature2 WHERE project_id = '{kontrakt}' AND nvdb_id in ({ ', '.join( nvdbDuplikat) } ))"
+
+        print( f"\n=====\n\nReturnerer SQL for å finne og evt fjerne {len(nvdbDuplikat)} relasjoner til eksisterende NVDB objekt som SKRIV sier er duplikat-relasjoner)")
          
     return returdata
 
